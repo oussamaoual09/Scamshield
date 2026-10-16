@@ -13,11 +13,12 @@ except ImportError:
     APITimeoutError = TimeoutError
 
 # Paramètres de l'appel à l'API
-MODELE = "llama-3.3-70b-versatile"
+MODELE = "openai/gpt-oss-120b"
 TEMPERATURE = 0.2
 LIMITE_CARACTERES = 3000
 DELAI_SECONDES = 20
-MAX_TOKENS = 900
+# Plus élevé que pour un modèle classique : gpt-oss consomme des jetons de raisonnement avant la réponse
+MAX_TOKENS = 2000
 
 # Valeurs autorisées dans la réponse de l'IA
 TYPES_VALIDES = ("phishing", "faux_placement", "ponzi", "faux_pret", "faux_gain", "autre", "sur")
@@ -94,14 +95,14 @@ def analyser_avec_ia(texte: str, langue: str = "auto") -> dict:
         brut = reponse.choices[0].message.content or ""
         donnees = valider_resultat(json.loads(nettoyer_reponse(brut)))
         return {"disponible": True, "donnees": donnees, "message": None}
-    except APITimeoutError:
-        logger.warning("Délai dépassé lors de l'appel à l'API Groq.")
+    except APITimeoutError as exc:
+        logger.warning("Délai dépassé lors de l'appel à l'API Groq : %s", exc)
         return _echec("L'IA n'a pas répondu à temps : résultat basé sur le moteur de règles uniquement.")
-    except ValueError:
-        logger.warning("Réponse de l'IA non interprétable.")
+    except ValueError as exc:
+        logger.warning("Réponse de l'IA non interprétable : %s", exc)
         return _echec("La réponse de l'IA n'est pas un JSON valide : résultat basé sur le moteur de règles uniquement.")
     except Exception as exc:
-        logger.warning("Erreur lors de l'appel à l'API Groq : %s", type(exc).__name__)
+        logger.warning("Erreur lors de l'appel à l'API Groq (%s) : %s", type(exc).__name__, exc)
         return _echec("L'API IA est indisponible : résultat basé sur le moteur de règles uniquement.")
 
 
