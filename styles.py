@@ -33,6 +33,9 @@ TEXTE_TAG = {"regle": "#93C5FD", "ia": "#C4B5FD"}
 CSS_BASE = """
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 html, body, [class*="css"], .stApp { font-family: 'Inter', system-ui, sans-serif; }
+.stApp { background: linear-gradient(180deg, #FFFFFF 0%, #EFF6FF 100%) !important; background-attachment: fixed; }
+[data-testid="stHeader"] { background: transparent; }
+[data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] p { color: var(--ss-texte_att) !important; }
 #MainMenu, footer { visibility: hidden; }
 .block-container { padding-top: 2rem; max-width: 1200px; }
 .ss-hero { margin-bottom: 1.2rem; }
