@@ -14,12 +14,7 @@ Types d'arnaques couverts : phishing bancaire, faux placements (Forex, crypto, r
 
 ## Captures d'écran
 
-> À compléter : ajoutez vos captures dans un dossier `docs/` puis remplacez les lignes ci-dessous.
-
-![Onglet Analyser](docs/capture_analyser.png)
-![Onglet Statistiques](docs/capture_statistiques.png)
-![Onglet Apprendre](docs/capture_apprendre.png)
-
+![Résultat d'analyse d'un phishing](capture1.png)
 ## Installation
 
 Prérequis : Python 3.10 ou plus récent.
