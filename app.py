@@ -35,9 +35,9 @@ EN_TETE = (
 def afficher_graphique(figure) -> None:
     """Affiche un graphique Plotly sur toute la largeur, compatible avec les versions récentes de Streamlit."""
     try:
-        st.plotly_chart(figure, width="stretch", config=CONFIG_GRAPHIQUE)
+        st.plotly_chart(figure, width="stretch", theme=None, config=CONFIG_GRAPHIQUE)
     except TypeError:
-        st.plotly_chart(figure, use_container_width=True, config=CONFIG_GRAPHIQUE)
+        st.plotly_chart(figure, use_container_width=True, theme=None, config=CONFIG_GRAPHIQUE)
 
 
 def _charger_exemple() -> None:

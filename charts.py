@@ -27,7 +27,7 @@ def _couper(texte: str, longueur: int) -> str:
 def _appliquer_theme(figure: go.Figure, hauteur: int = 320) -> go.Figure:
     """Applique le thème sombre commun à tous les graphiques : fond transparent, police et marges."""
     figure.update_layout(
-        template="plotly_dark",
+        template="plotly_white",
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         font=dict(family="Inter, sans-serif", color=COULEURS["texte"]),
@@ -63,7 +63,11 @@ def graphique_jauge(score: int, niveau_code: str) -> go.Figure:
             number={"suffix": " / 100", "font": {"size": 44, "color": COULEURS["texte"]}},
             title={"text": "Niveau de risque", "font": {"size": 18, "color": COULEURS["texte"]}},
             gauge={
-                "axis": {"range": [0, 100], "tickcolor": COULEURS["texte_att"]},
+                "axis": {
+                    "range": [0, 100],
+                    "tickcolor": COULEURS["texte_att"],
+                    "tickfont": {"size": 12, "color": COULEURS["texte_att"]},
+                },
                 "bar": {"color": couleur_niveau(niveau_code), "thickness": 0.28},
                 "bgcolor": "rgba(0,0,0,0)",
                 "borderwidth": 0,
@@ -93,6 +97,7 @@ def graphique_contributions(signaux: list[dict]) -> go.Figure:
             marker=dict(color=couleurs),
             text=[f"{signal['points']:g} pts" for signal in affiches],
             textposition="outside",
+            textfont=dict(color=COULEURS["texte"]),
             cliponaxis=False,
             hovertemplate="%{y}<br>Contribution : %{x} pts<extra></extra>",
         )
@@ -125,7 +130,11 @@ def graphique_radar(scores: dict) -> go.Figure:
                 linecolor=COULEURS["bordure"],
                 tickfont=dict(size=10, color=COULEURS["texte_att"]),
             ),
-            angularaxis=dict(gridcolor=COULEURS["bordure"], linecolor=COULEURS["bordure"]),
+            angularaxis=dict(
+                gridcolor=COULEURS["bordure"],
+                linecolor=COULEURS["bordure"],
+                tickfont=dict(size=12, color=COULEURS["texte"]),
+            ),
         )
     )
     return _appliquer_theme(figure, 340)
@@ -147,6 +156,7 @@ def graphique_repartition_types(df: pd.DataFrame) -> go.Figure:
             sort=False,
             marker=dict(colors=PALETTE_TYPES, line=dict(color=COULEURS["fond"], width=2)),
             textinfo="percent",
+            textfont=dict(color="#FFFFFF"),
             hovertemplate="%{label} : %{value} analyse(s)<extra></extra>",
         )
     )
