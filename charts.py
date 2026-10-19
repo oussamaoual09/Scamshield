@@ -1,4 +1,4 @@
-"""Graphiques Plotly de ScamShield : thème sombre unique, fond transparent et couleurs partagées."""
+"""Graphiques Plotly de ScamShield : fond transparent, palette partagée, coins arrondis et titres en gras."""
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -6,8 +6,9 @@ import plotly.graph_objects as go
 from rules import CATEGORIES, CATEGORIES_RADAR, NIVEAUX
 from styles import COULEURS, couleur_niveau
 
-# Couleurs des types d'arnaques dans le graphique en anneau
-PALETTE_TYPES = ["#3B82F6", "#A78BFA", "#F59E0B", "#EF4444", "#22C55E", "#64748B"]
+# Couleurs des types d'arnaques dans le graphique en anneau.
+# Nuances foncées : les étiquettes blanches des parts doivent garder un contraste d'au moins 4,5:1.
+PALETTE_TYPES = ["#1D4ED8", "#6D28D9", "#B45309", "#B91C1C", "#15803D", "#475569"]
 
 # Correspondance libellé de niveau -> code interne
 CODE_PAR_NIVEAU = {libelle: code for code, libelle in NIVEAUX.items()}
@@ -19,95 +20,169 @@ def _rgba(couleur: str, alpha: float) -> str:
     return f"rgba({rouge},{vert},{bleu},{alpha})"
 
 
+def _melanger(couleur_a: str, couleur_b: str, position: float) -> str:
+    """Mélange deux couleurs hexadécimales selon une position entre 0 et 1."""
+    canaux = []
+    for index in (1, 3, 5):
+        depart, arrivee = int(couleur_a[index:index + 2], 16), int(couleur_b[index:index + 2], 16)
+        canaux.append(int(round(depart + (arrivee - depart) * position)))
+    return "#" + "".join(f"{canal:02X}" for canal in canaux)
+
+
+def _zones_degrade(nombre: int = 24, transparence: float = 0.5) -> list[dict]:
+    """Construit les zones d'une jauge en dégradé continu vert → orange → rouge."""
+    zones = []
+    for index in range(nombre):
+        position = index / (nombre - 1)
+        if position <= 0.5:
+            couleur = _melanger(COULEURS["sur"], COULEURS["suspect"], position * 2)
+        else:
+            couleur = _melanger(COULEURS["suspect"], COULEURS["arnaque"], (position - 0.5) * 2)
+        zones.append(
+            {"range": [100 * index / nombre, 100 * (index + 1) / nombre], "color": _rgba(couleur, transparence)}
+        )
+    return zones
+
+
 def _couper(texte: str, longueur: int) -> str:
     """Raccourcit un libellé trop long pour un axe de graphique."""
     return texte if len(texte) <= longueur else texte[: longueur - 1] + "…"
 
 
-def _appliquer_theme(figure: go.Figure, hauteur: int = 320) -> go.Figure:
-    """Applique le thème sombre commun à tous les graphiques : fond transparent, police et marges."""
+def _gras(texte: str) -> str:
+    """Renvoie un titre en gras : Plotly affiche un sous-ensemble de balises HTML."""
+    return f"<b>{texte}</b>"
+
+
+def _appliquer_theme(figure: go.Figure, hauteur: int = 320, titre: str | None = None) -> go.Figure:
+    """Applique le thème commun : fond transparent, police Inter, légende claire et titre en gras."""
     figure.update_layout(
         template="plotly_white",
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         font=dict(family="Inter, sans-serif", color=COULEURS["texte"]),
-        margin=dict(l=16, r=16, t=48, b=16),
+        margin=dict(l=16, r=16, t=58 if titre else 40, b=16),
         height=hauteur,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1,
+            bgcolor="rgba(0,0,0,0)",
+            bordercolor="rgba(0,0,0,0)",
+            font=dict(color=COULEURS["texte_att"], size=12),
+        ),
+        hoverlabel=dict(
+            bgcolor="#FFFFFF",
+            bordercolor=COULEURS["bordure"],
+            font=dict(color=COULEURS["texte"], family="Inter, sans-serif", size=12),
+        ),
     )
+    if titre:
+        figure.update_layout(
+            title=dict(
+                text=_gras(titre),
+                x=0.01,
+                xanchor="left",
+                y=0.97,
+                yanchor="top",
+                font=dict(size=15, color=COULEURS["texte"]),
+            )
+        )
     return figure
 
 
-def _figure_vide(message: str, hauteur: int = 320) -> go.Figure:
-    """Crée un graphique vide qui affiche un message d'invitation."""
+def _figure_vide(message: str, titre: str | None = None, hauteur: int = 320) -> go.Figure:
+    """Crée un graphique vide soigné : icône, message centré et titre en gras."""
     figure = go.Figure()
     figure.add_annotation(
-        text=message,
+        text="📭",
         x=0.5,
-        y=0.5,
+        y=0.62,
         xref="paper",
         yref="paper",
         showarrow=False,
-        font=dict(size=15, color=COULEURS["texte_att"]),
+        font=dict(size=30, color=COULEURS["texte_att"]),
+    )
+    figure.add_annotation(
+        text=message,
+        x=0.5,
+        y=0.44,
+        xref="paper",
+        yref="paper",
+        showarrow=False,
+        font=dict(size=14, color=COULEURS["texte_att"]),
     )
     figure.update_xaxes(visible=False)
     figure.update_yaxes(visible=False)
-    return _appliquer_theme(figure, hauteur)
+    return _appliquer_theme(figure, hauteur, titre)
 
 
-def graphique_jauge(score: int, niveau_code: str) -> go.Figure:
-    """Jauge du score de risque avec trois zones colorées : Sûr, Suspect et Arnaque probable."""
+def graphique_jauge(score: int, titre: str = "Niveau de risque") -> go.Figure:
+    """Jauge du score de risque, avec un dégradé continu du vert au rouge."""
     figure = go.Figure(
         go.Indicator(
             mode="gauge+number",
             value=score,
-            number={"suffix": " / 100", "font": {"size": 44, "color": COULEURS["texte"]}},
-            title={"text": "Niveau de risque", "font": {"size": 18, "color": COULEURS["texte"]}},
+            number={"suffix": " / 100", "font": {"size": 46, "color": COULEURS["texte"]}},
+            title={"text": _gras(titre), "font": {"size": 16, "color": COULEURS["texte"]}},
             gauge={
                 "axis": {
                     "range": [0, 100],
                     "tickcolor": COULEURS["texte_att"],
                     "tickfont": {"size": 12, "color": COULEURS["texte_att"]},
                 },
-                "bar": {"color": couleur_niveau(niveau_code), "thickness": 0.28},
+                "bar": {"color": COULEURS["texte"], "thickness": 0.22},
                 "bgcolor": "rgba(0,0,0,0)",
                 "borderwidth": 0,
-                "steps": [
-                    {"range": [0, 30], "color": _rgba(COULEURS["sur"], 0.25)},
-                    {"range": [30, 65], "color": _rgba(COULEURS["suspect"], 0.25)},
-                    {"range": [65, 100], "color": _rgba(COULEURS["arnaque"], 0.25)},
-                ],
+                "steps": _zones_degrade(),
             },
         )
     )
     return _appliquer_theme(figure, 300)
 
 
-def graphique_contributions(signaux: list[dict]) -> go.Figure:
-    """Barres horizontales : contribution de chaque signal au score final."""
+def graphique_contributions(signaux: list[dict], titre: str = "Contribution de chaque signal") -> go.Figure:
+    """Barres horizontales arrondies : contribution de chaque signal, une couleur et une légende par source."""
     if not signaux:
-        return _figure_vide("Aucun signal à afficher")
+        return _figure_vide("Aucun signal à afficher", titre)
     affiches = list(reversed(signaux[:8]))
-    couleurs = [COULEURS["ia"] if "IA" in signal["source"] else COULEURS["principale"] for signal in affiches]
+    libelles = [_couper(signal["libelle"], 40) for signal in affiches]
     maximum = max(signal["points"] for signal in affiches)
-    figure = go.Figure(
-        go.Bar(
-            x=[signal["points"] for signal in affiches],
-            y=[_couper(signal["libelle"], 40) for signal in affiches],
-            orientation="h",
-            marker=dict(color=couleurs),
-            text=[f"{signal['points']:g} pts" for signal in affiches],
-            textposition="outside",
-            textfont=dict(color=COULEURS["texte"]),
-            cliponaxis=False,
-            hovertemplate="%{y}<br>Contribution : %{x} pts<extra></extra>",
-        )
+    sources = (
+        ("Moteur de règles", COULEURS["principale"], False),
+        ("Intelligence artificielle", COULEURS["ia"], True),
     )
-    figure.update_xaxes(title="Points ajoutés au score", range=[0, max(10, maximum * 1.25)], gridcolor=COULEURS["bordure"])
-    figure.update_yaxes(automargin=True)
-    return _appliquer_theme(figure, max(260, 46 * len(affiches) + 80))
+    figure = go.Figure()
+    for nom, couleur, est_ia in sources:
+        points = [signal["points"] if ("IA" in signal["source"]) == est_ia else None for signal in affiches]
+        figure.add_trace(
+            go.Bar(
+                x=points,
+                y=libelles,
+                orientation="h",
+                name=nom,
+                marker=dict(color=couleur, cornerradius=6),
+                text=[f"{point:g} pts" if point is not None else "" for point in points],
+                textposition="outside",
+                textfont=dict(color=COULEURS["texte"]),
+                cliponaxis=False,
+                hovertemplate=f"%{{y}}<br>{nom} : %{{x}} pts<extra></extra>",
+            )
+        )
+    figure.update_layout(barmode="overlay", bargap=0.35)
+    figure.update_xaxes(
+        title="Points ajoutés au score",
+        range=[0, max(10, maximum * 1.25)],
+        gridcolor=COULEURS["bordure"],
+        zeroline=False,
+    )
+    figure.update_yaxes(automargin=True, categoryorder="array", categoryarray=libelles)
+    return _appliquer_theme(figure, max(260, 48 * len(affiches) + 90), titre)
 
 
-def graphique_radar(scores: dict) -> go.Figure:
+def graphique_radar(scores: dict, titre: str = "Profil de risque par type") -> go.Figure:
     """Radar du profil de risque par type d'arnaque : phishing, placement, Ponzi, prêt et gain."""
     etiquettes = [CATEGORIES[code]["court"] for code in CATEGORIES_RADAR]
     valeurs = [round(scores.get(code, 0)) for code in CATEGORIES_RADAR]
@@ -137,16 +212,16 @@ def graphique_radar(scores: dict) -> go.Figure:
             ),
         )
     )
-    return _appliquer_theme(figure, 340)
+    return _appliquer_theme(figure, 340, titre)
 
 
-def graphique_repartition_types(df: pd.DataFrame) -> go.Figure:
+def graphique_repartition_types(df: pd.DataFrame, titre: str = "Types d'arnaques détectés") -> go.Figure:
     """Camembert en anneau : répartition des types d'arnaques détectés, hors « sûr »."""
     if df.empty:
-        return _figure_vide("Pas encore de données")
+        return _figure_vide("Aucune donnée pour l'instant", titre, 340)
     detectes = df.loc[df["type"] != "sur", "type"].value_counts()
     if detectes.empty:
-        return _figure_vide("Aucune arnaque détectée pour l'instant")
+        return _figure_vide("Aucune arnaque détectée pour l'instant", titre, 340)
     etiquettes = [CATEGORIES.get(code, CATEGORIES["autre"])["court"] for code in detectes.index]
     figure = go.Figure(
         go.Pie(
@@ -162,45 +237,44 @@ def graphique_repartition_types(df: pd.DataFrame) -> go.Figure:
     )
     figure.update_layout(
         showlegend=True,
-        legend=dict(orientation="h", y=-0.1),
         annotations=[
             dict(
                 text=f"<b>{int(detectes.sum())}</b><br>détection(s)",
                 x=0.5,
                 y=0.5,
                 showarrow=False,
-                font=dict(size=14),
+                font=dict(size=14, color=COULEURS["texte"]),
             )
         ],
     )
-    return _appliquer_theme(figure, 340)
+    return _appliquer_theme(figure, 340, titre)
 
 
-def graphique_distribution(df: pd.DataFrame) -> go.Figure:
-    """Histogramme de la distribution des scores, avec les zones Sûr, Suspect et Arnaque en fond."""
+def graphique_distribution(df: pd.DataFrame, titre: str = "Distribution des scores") -> go.Figure:
+    """Histogramme arrondi de la distribution des scores, avec les zones Sûr, Suspect et Arnaque en fond."""
     if df.empty:
-        return _figure_vide("Pas encore de données")
+        return _figure_vide("Aucune donnée pour l'instant", titre, 340)
     figure = go.Figure(
         go.Histogram(
             x=df["score"],
             xbins=dict(start=0, end=100, size=10),
-            marker=dict(color=COULEURS["principale"], line=dict(color=COULEURS["fond"], width=1)),
+            marker=dict(color=COULEURS["principale"], cornerradius=6, line=dict(color=COULEURS["fond"], width=1)),
             hovertemplate="Score %{x}<br>%{y} analyse(s)<extra></extra>",
         )
     )
     figure.add_vrect(x0=0, x1=30, fillcolor=COULEURS["sur"], opacity=0.08, line_width=0)
     figure.add_vrect(x0=30, x1=65, fillcolor=COULEURS["suspect"], opacity=0.08, line_width=0)
     figure.add_vrect(x0=65, x1=100, fillcolor=COULEURS["arnaque"], opacity=0.08, line_width=0)
-    figure.update_xaxes(title="Score de risque", range=[0, 100], gridcolor=COULEURS["bordure"])
-    figure.update_yaxes(title="Nombre d'analyses", gridcolor=COULEURS["bordure"])
-    figure.update_layout(bargap=0.08)
-    return _appliquer_theme(figure, 340)
+    figure.update_xaxes(title="<b>Score de risque</b>", range=[0, 100], gridcolor=COULEURS["bordure"], zeroline=False)
+    figure.update_yaxes(title="<b>Nombre d'analyses</b>", gridcolor=COULEURS["bordure"], zeroline=False)
+    figure.update_layout(bargap=0.12)
+    return _appliquer_theme(figure, 340, titre)
 
 
-def graphique_evolution(df: pd.DataFrame) -> go.Figure:
+def graphique_evolution(df: pd.DataFrame, titre: str = "Évolution du score dans le temps") -> go.Figure:
     """Courbe de l'évolution du score dans le temps, avec les points colorés selon le niveau."""
     if df.empty:
-        return _figure_vide("Pas encore de données")
+        return _figure_vide("Aucune donnée pour l'instant", titre)
     dates = pd.to_datetime(df["date"], errors="coerce")
     couleurs = [couleur_niveau(CODE_PAR_NIVEAU.get(niveau, "suspect")) for niveau in df["niveau"]]
     libelles = [CATEGORIES.get(code, CATEGORIES["autre"])["court"] for code in df["type"]]
@@ -209,7 +283,8 @@ def graphique_evolution(df: pd.DataFrame) -> go.Figure:
             x=dates,
             y=df["score"],
             mode="lines+markers",
-            line=dict(color=COULEURS["principale"], width=2),
+            name="Score de risque",
+            line=dict(color=COULEURS["principale"], width=2, shape="spline"),
             marker=dict(size=10, color=couleurs, line=dict(color=COULEURS["fond"], width=1)),
             text=libelles,
             hovertemplate="%{x|%d/%m/%Y %H:%M}<br>Score : %{y}/100<br>%{text}<extra></extra>",
@@ -217,6 +292,6 @@ def graphique_evolution(df: pd.DataFrame) -> go.Figure:
     )
     figure.add_hline(y=30, line=dict(color=COULEURS["sur"], dash="dot"))
     figure.add_hline(y=65, line=dict(color=COULEURS["arnaque"], dash="dot"))
-    figure.update_xaxes(title="Date", gridcolor=COULEURS["bordure"])
-    figure.update_yaxes(title="Score", range=[0, 100], gridcolor=COULEURS["bordure"])
-    return _appliquer_theme(figure, 320)
+    figure.update_xaxes(title="<b>Date</b>", gridcolor=COULEURS["bordure"])
+    figure.update_yaxes(title="<b>Score</b>", range=[0, 100], gridcolor=COULEURS["bordure"])
+    return _appliquer_theme(figure, 320, titre)
